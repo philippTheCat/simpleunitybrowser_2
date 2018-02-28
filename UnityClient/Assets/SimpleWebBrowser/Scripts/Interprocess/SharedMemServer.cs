@@ -9,11 +9,6 @@ public class SharedMemServer : IDisposable
 
     public string Filename;
 
- 
-
-
-
-
     public void Init(int size, string filename)
     {
         _sharedBuf = new SharedArray<byte>(filename, size);
@@ -43,8 +38,6 @@ public class SharedMemServer : IDisposable
 
     public void Resize(int newSize)
     {
-
-
         if (_sharedBuf.Length != newSize)
         {
             _sharedBuf.Close();
@@ -77,8 +70,6 @@ public class SharedMemServer : IDisposable
         {
             ret = new byte[_sharedBuf.Count];
             _sharedBuf.CopyTo(ret);
-
-            //_sharedBuf.
         }
 
         return ret;

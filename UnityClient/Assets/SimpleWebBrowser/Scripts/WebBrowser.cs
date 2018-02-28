@@ -9,10 +9,6 @@ using System.Collections.Generic;
 
 namespace SimpleWebBrowser
 {
-
-
-
-
     public class WebBrowser : MonoBehaviour
     {
 
@@ -109,21 +105,21 @@ namespace SimpleWebBrowser
         void InitPrefabLinks()
         {
             if (mainUIPanel == null)
-                mainUIPanel = gameObject.transform.FindChild("MainUI").gameObject.GetComponent<BrowserUI>();
+                mainUIPanel = gameObject.transform.Find("MainUI").gameObject.GetComponent<BrowserUI>();
             if (DialogEnabled)
             {
                 if (DialogCanvas == null)
-                    DialogCanvas = gameObject.transform.FindChild("MessageBox").gameObject.GetComponent<Canvas>();
+                    DialogCanvas = gameObject.transform.Find("MessageBox").gameObject.GetComponent<Canvas>();
             if (DialogText == null)
-                DialogText = DialogCanvas.transform.FindChild("MessageText").gameObject.GetComponent<Text>();
+                DialogText = DialogCanvas.transform.Find("MessageText").gameObject.GetComponent<Text>();
             if (OkButton == null)
-                OkButton = DialogCanvas.transform.FindChild("OK").gameObject.GetComponent<Button>();
+                OkButton = DialogCanvas.transform.Find("OK").gameObject.GetComponent<Button>();
             if (YesButton == null)
-                YesButton = DialogCanvas.transform.FindChild("Yes").gameObject.GetComponent<Button>();
+                YesButton = DialogCanvas.transform.Find("Yes").gameObject.GetComponent<Button>();
             if (NoButton == null)
-                NoButton = DialogCanvas.transform.FindChild("No").gameObject.GetComponent<Button>();
+                NoButton = DialogCanvas.transform.Find("No").gameObject.GetComponent<Button>();
             if (DialogPrompt == null)
-                DialogPrompt = DialogCanvas.transform.FindChild("Prompt").gameObject.GetComponent<InputField>();
+                DialogPrompt = DialogCanvas.transform.Find("Prompt").gameObject.GetComponent<InputField>();
 
     }
   }
@@ -132,23 +128,22 @@ namespace SimpleWebBrowser
         {
             _mainEngine = new BrowserEngine();
 
-            if (RandomMemoryFile)
-            {
+            if (RandomMemoryFile) {
                 Guid memid = Guid.NewGuid();
                 MemoryFile = memid.ToString();
             }
-           
 
 
 
-  StartCoroutine(          _mainEngine.InitPlugin(Width, Height, MemoryFile, InitialURL,EnableWebRTC,EnableGPU));
+            IEnumerator initCoroutine =
+                _mainEngine.InitPlugin(Width, Height, MemoryFile, InitialURL, EnableWebRTC, EnableGPU);
+            StartCoroutine(initCoroutine);
+
             //run initialization
             if (JSInitializationCode.Trim() != "")
                 _mainEngine.RunJSOnce(JSInitializationCode);
 
-            //
-            if (UIEnabled)
-            {
+            if (UIEnabled){
                 InitPrefabLinks();
                 mainUIPanel.InitPrefabLinks();
             }
@@ -166,7 +161,7 @@ namespace SimpleWebBrowser
 
             
             if(UIEnabled)
-            mainUIPanel.MainCanvas.worldCamera = MainCamera;
+            	mainUIPanel.MainCanvas.worldCamera = MainCamera;
 
 
 
@@ -478,10 +473,7 @@ _mainEngine.OnPageLoaded += _mainEngine_OnPageLoaded;
 
         #endregion
 
-        private void FixedUpdate()
-        {
-            _mainEngine.PushMessages(); //
-        }
+        
 
         // Update is called once per frame
         void Update()
@@ -515,7 +507,7 @@ _mainEngine.OnPageLoaded += _mainEngine_OnPageLoaded;
 
             }
 
-if (UIEnabled)
+		if (UIEnabled)
             {
 
 
@@ -523,20 +515,13 @@ if (UIEnabled)
             {
                 foreach (char c in Input.inputString)
                 {
-
                     _mainEngine.SendCharEvent((int) c, KeyboardEventType.CharKey);
                 }
                 ProcessKeyEvents();
              }
-
-
-
-
             }
 
-
             _mainEngine.CheckMessage();
-
         }
 
         #region Keys

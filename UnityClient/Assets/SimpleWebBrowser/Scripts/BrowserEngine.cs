@@ -1,46 +1,28 @@
 using System;
 using System.Diagnostics;
 using System.Collections;
-using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Threading;
 using MessageLibrary;
-using SharedMemory;
-
 using UnityEngine;
-using UnityEngine.UI;
 using Debug = UnityEngine.Debug;
-using Object = System.Object;
 
 namespace SimpleWebBrowser
 {
-
-
-
     public class BrowserEngine
     {
-
-        private SharedArray<byte> _mainTexArray;
-
+        private SharedTextureReader _mainTexArray;
         private SharedCommServer _inCommServer;
         private SharedCommServer _outCommServer;
-
         private Process _pluginProcess;
-
-        private static Object sPixelLock;
-
+        
         public Texture2D BrowserTexture = null;
+        private bool StopRequestFlag = false;
         public bool Initialized = false;
-
-
         private bool _needToRunOnce = false;
         private string _runOnceJS = "";
-
         //Image buffer
-        private byte[] _bufferBytes = null;
-        private long _arraySize = 0;
-
         private bool _connected = false;
+        private Thread _pollthread;
 
 
         #region Status events
@@ -89,29 +71,17 @@ namespace SimpleWebBrowser
 
         #region Init
 
-        //A really hackish way to avoid thread error. Should be better way
-      /*  public bool ConnectTcp(out TcpClient tcp)
-        {
-            TcpClient ret = null;
-            try
-            {
-                ret = new TcpClient("127.0.0.1", _port);
+        private void BackgroundPollThread() {
+            while (!StopRequestFlag) {
+                SendPing();
+                Thread.Sleep(1000);
             }
-            catch (Exception ex)
-            {
-                tcp = null;
-                return false;
-            }
-
-            tcp = ret;
-            return true;
-
-        }*/
-
+        }
 
         public IEnumerator InitPlugin(int width, int height, string sharedfilename,string initialURL,bool enableWebRTC,bool enableGPU)
         {
-
+            _pollthread=new Thread(BackgroundPollThread);
+            _pollthread.Start();
             //Initialization (for now) requires a predefined path to PluginServer,
             //so change this section if you move the folder
             //Also change the path in deployment script.
@@ -162,12 +132,6 @@ namespace SimpleWebBrowser
 
               if (BrowserTexture == null)
                 BrowserTexture = new Texture2D(kWidth, kHeight, TextureFormat.BGRA32, false, true);
-
-
-
-            sPixelLock = new object();
-
-
             string args = BuildParamsString();
 
            _connected = false;
@@ -189,9 +153,6 @@ namespace SimpleWebBrowser
 
                         }
                     };
-
-
-
                     _pluginProcess.Start();
                     Initialized = false;
                 }
@@ -202,8 +163,6 @@ namespace SimpleWebBrowser
                     throw;
                 }
                 yield return new WaitForSeconds(1.0f);
-               //connected = ConnectTcp(out _clientSocket);
-
                 _inCommServer.Connect(_inCommFile);
                 bool b1 = _inCommServer.GetIsOpen();
                 _outCommServer.Connect(_outCommFile);
@@ -264,12 +223,6 @@ namespace SimpleWebBrowser
                     Event = ge,
                     Type = MessageLibrary.BrowserEventType.Generic
                 };
-
-                /*MemoryStream mstr = new MemoryStream();
-                BinaryFormatter bf = new BinaryFormatter();
-                bf.Serialize(mstr, ep);
-                byte[] b = mstr.GetBuffer();
-                _outCommServer.WriteBytes(b);*/
                 _outCommServer.WriteMessage(ep);
             }
         }
@@ -294,11 +247,7 @@ namespace SimpleWebBrowser
             }
         }
 
-        public void PushMessages()
-        {
-            if(Initialized)
-            _outCommServer.PushMessages();
-        }
+        
 
        public void SendDialogResponse(bool ok, string dinput)
         {
@@ -399,23 +348,19 @@ namespace SimpleWebBrowser
 
         public void SendPing()
        {
-            if (Initialized)
-            {
-            GenericEvent ge = new GenericEvent()
-            {
-                Type = GenericEventType.Navigate, //could be any
-                GenericType = BrowserEventType.Ping,
-
-            };
-
-            EventPacket ep = new EventPacket()
-            {
-                Event = ge,
-                Type = BrowserEventType.Ping
-            };
-
-            _outCommServer.WriteMessage(ep);
-       }
+            if (Initialized){
+                GenericEvent ge = new GenericEvent()
+                {
+                    Type = GenericEventType.Navigate, //could be any
+                    GenericType = BrowserEventType.Ping,
+                };
+                EventPacket ep = new EventPacket()
+                {
+                    Event = ge,
+                    Type = BrowserEventType.Ping
+                };
+                    _outCommServer.WriteMessage(ep);
+                }
         }
 
 
@@ -473,7 +418,7 @@ namespace SimpleWebBrowser
 
 
                             //init memory file
-                            _mainTexArray = new SharedArray<byte>(_sharedFileName);
+                            _mainTexArray = new SharedTextureReader(_sharedFileName);
 
                             Initialized = true;
                         }
@@ -542,9 +487,12 @@ namespace SimpleWebBrowser
         }
 
 
-        public void Shutdown()
-        {
+        public void Shutdown() {
+            StopRequestFlag = true;
             SendShutdownEvent();
+            Initialized = false;
+            if (_pollthread!=null)
+                _pollthread.Join();
         }
 
         //////////Added//////////
@@ -553,21 +501,12 @@ namespace SimpleWebBrowser
             if (Initialized)
             {
                 SendPing();
-
-                if (_bufferBytes == null)
-                {
-                    long arraySize = _mainTexArray.Length;
-                    Debug.Log("Memory array size:" + arraySize);
-                    _bufferBytes = new byte[arraySize];
-                }
-                _mainTexArray.CopyTo(_bufferBytes, 0);
-
-                lock (sPixelLock)
-                {
-
-                    BrowserTexture.LoadRawTextureData(_bufferBytes);
-                    BrowserTexture.Apply();
-
+                if (_mainTexArray.AcquireReadLock(0)) {
+                    if (_mainTexArray.Length > 0) {
+                        BrowserTexture.LoadRawTextureData(_mainTexArray.UnsafeDataPointer(), _mainTexArray.Length);
+                        BrowserTexture.Apply();
+                    }
+                    _mainTexArray.ReleaseReadLock();
                 }
             }
         }

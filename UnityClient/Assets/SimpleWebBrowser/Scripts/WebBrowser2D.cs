@@ -50,7 +50,7 @@ namespace SimpleWebBrowser
         public BrowserUI mainUIPanel;
 
         public bool KeepUIVisible = false;
-
+		public bool UIEnabled = true;
         [Header("Dialog settings")]
         [SerializeField]
         public GameObject DialogPanel;
@@ -78,9 +78,6 @@ namespace SimpleWebBrowser
         private bool _setUrl = false;
         private string _setUrlString = "";
 
-        //input
-        //private GraphicRaycaster _raycaster;
-        //private StandaloneInputModule _input;
 
         #region JS Query events
 
@@ -117,44 +114,46 @@ namespace SimpleWebBrowser
             if (Browser2D == null)
                 Browser2D = gameObject.GetComponent<RawImage>();
             if (mainUIPanel == null)
-                mainUIPanel = gameObject.transform.FindChild("MainUI").gameObject.GetComponent<BrowserUI>();
+                mainUIPanel = gameObject.transform.Find("MainUI").gameObject.GetComponent<BrowserUI>();
             if (DialogPanel == null)
-                DialogPanel = gameObject.transform.FindChild("MessageBox").gameObject;
+                DialogPanel = gameObject.transform.Find("MessageBox").gameObject;
             if (DialogText == null)
-                DialogText = DialogPanel.transform.FindChild("MessageText").gameObject.GetComponent<Text>();
+                DialogText = DialogPanel.transform.Find("MessageText").gameObject.GetComponent<Text>();
             if (OkButton == null)
-                OkButton = DialogPanel.transform.FindChild("OK").gameObject.GetComponent<Button>();
+                OkButton = DialogPanel.transform.Find("OK").gameObject.GetComponent<Button>();
             if (YesButton == null)
-                YesButton = DialogPanel.transform.FindChild("Yes").gameObject.GetComponent<Button>();
+                YesButton = DialogPanel.transform.Find("Yes").gameObject.GetComponent<Button>();
             if (NoButton == null)
-                NoButton = DialogPanel.transform.FindChild("No").gameObject.GetComponent<Button>();
+                NoButton = DialogPanel.transform.Find("No").gameObject.GetComponent<Button>();
             if (DialogPrompt == null)
-                DialogPrompt = DialogPanel.transform.FindChild("Prompt").gameObject.GetComponent<InputField>();
+                DialogPrompt = DialogPanel.transform.Find("Prompt").gameObject.GetComponent<InputField>();
 
         }
 
 
-        void Awake()
-        {
-            _mainEngine = new BrowserEngine();
-
-            if (RandomMemoryFile)
-            {
-                Guid memid = Guid.NewGuid();
-                MemoryFile = memid.ToString();
-            }
-            
-            _mainEngine.InitPlugin(Width, Height, MemoryFile, InitialURL,EnableWebRTC,EnableGPU);
-            //run initialization
-            if (JSInitializationCode.Trim() != "")
-                _mainEngine.RunJSOnce(JSInitializationCode);
-        }
+        
 
 
         void Start()
         {
-            InitPrefabLinks();
-            mainUIPanel.InitPrefabLinks();
+            _mainEngine = new BrowserEngine();
+
+            if (RandomMemoryFile) {
+                Guid memid = Guid.NewGuid();
+                MemoryFile = memid.ToString();
+            }
+
+            IEnumerator initCoroutine =
+                _mainEngine.InitPlugin(Width, Height, MemoryFile, InitialURL, EnableWebRTC, EnableGPU);
+            StartCoroutine(initCoroutine);
+            //run initialization
+            if (JSInitializationCode.Trim() != "")
+                _mainEngine.RunJSOnce(JSInitializationCode);
+
+            if (UIEnabled){
+                InitPrefabLinks();
+                mainUIPanel.InitPrefabLinks();
+            }
 
             _mainCamera = GameObject.Find("Main Camera").GetComponent<Camera>();
 
@@ -262,10 +261,7 @@ namespace SimpleWebBrowser
 
         }
 
-        public void RunJavaScript(string js)
-        {
-            _mainEngine.SendExecuteJSEvent(js);
-        }
+       
 
         #endregion
 
@@ -278,6 +274,10 @@ namespace SimpleWebBrowser
 
         }
 
+ public void RunJavaScript(string js)
+        {
+            _mainEngine.SendExecuteJSEvent(js);
+        }
         public void GoBackForward(bool forward)
         {
             if (forward)
@@ -296,14 +296,16 @@ namespace SimpleWebBrowser
         public void OnPointerEnter(PointerEventData data)
         {
             _focused = true;
-            mainUIPanel.Show();
+			if(UIEnabled)
+            	mainUIPanel.Show();
             StartCoroutine("TrackPointer");
         }
 
         public void OnPointerExit(PointerEventData data)
         {
             _focused = false;
-            mainUIPanel.Hide();
+			if(UIEnabled)
+            	mainUIPanel.Hide();
             StopCoroutine("TrackPointer");
         }
 
@@ -502,14 +504,10 @@ namespace SimpleWebBrowser
         }
 
         #endregion
-
         // Update is called once per frame
         void Update()
         {
-
             _mainEngine.UpdateTexture();
-
-            _mainEngine.CheckMessage();
 
             #region 2D mouse
 
@@ -539,10 +537,13 @@ namespace SimpleWebBrowser
             if (_setUrl)
             {
                 _setUrl = false;
+                if(UIEnabled)
                 mainUIPanel.UrlField.text = _setUrlString;
 
             }
 
+if (UIEnabled)
+            {
 
 
             if (_focused && !mainUIPanel.UrlField.isFocused) //keys
@@ -550,14 +551,12 @@ namespace SimpleWebBrowser
                 foreach (char c in Input.inputString)
                 {
                     _mainEngine.SendCharEvent((int) c, KeyboardEventType.CharKey);
-
-
                 }
                 ProcessKeyEvents();
-
-
+            }
             }
 
+			_mainEngine.CheckMessage();
         }
 
         #region Keys

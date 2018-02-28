@@ -1,5 +1,7 @@
 syntax: glob
 *.suo
+*.info
+*.bak
 ConsoleTest/bin/
 ConsoleTest/obj/
 SharedPluginServer/bin/
@@ -9,7 +11,8 @@ TestClient/bin/
 TestClient/obj/
 MessageLibrary/bin/
 MessageLibrary/obj/
-UnityClient/Library/CrashedAssetImports.txt
+*\UnityClient\Library\*
+UnityClient/Library/*
 UnityClient/Library
 UnityClient/Temp
 release_build/
@@ -23,6 +26,7 @@ UnityClient/BrowserDemoWebRTC.zip
 UnityClient/Assets/SimpleWebBrowser/PluginServer/x64/Extending Unity with Editor Scripting [eBook].pdf
 UnityClient/Assets/SimpleWebBrowser/PluginServer/x64/Extending Unity with Editor Scripting [eBook].pdf
 _ReSharper.Caches/
+
 syntax: glob
 .DS_Store
 *.sln
