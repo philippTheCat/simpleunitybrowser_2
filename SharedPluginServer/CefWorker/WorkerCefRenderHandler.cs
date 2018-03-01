@@ -12,12 +12,10 @@ namespace SharedPluginServer
 
         private int _copysize = 0;
 
-        public byte[] MainBitmap = null;
-
         public int CurrentWidth=0;
         public int CurrentHeight = 0;
 
-        public SharedMemServer _memServer = null;
+        public SharedTextureWriter _memServer = null;
 
 
         /// <summary>
@@ -36,6 +34,10 @@ namespace SharedPluginServer
             
             _windowWidth = windowWidth;
             _windowHeight = windowHeight;
+        }
+
+        protected override CefAccessibilityHandler GetAccessibilityHandler() {
+            return null;
         }
 
         protected override bool GetRootScreenRect(CefBrowser browser, ref CefRectangle rect)
@@ -75,21 +77,11 @@ namespace SharedPluginServer
          *  The CefBrowserSettings.animation_frame_rate value controls the rate at which this method is called.*/
         protected override void OnPaint(CefBrowser browser, CefPaintElementType type, CefRectangle[] dirtyRects, IntPtr buffer, int width, int height)
         {
-          
-            if (MainBitmap == null)
-            {
-                _copysize = width*height*4; 
-
-                MainBitmap = new byte[_copysize];
-             }
-
+            _copysize = width * height * 4;
             CurrentWidth = width;
             CurrentHeight = height;
-            Marshal.Copy(buffer, MainBitmap, 0, _copysize);
-
-
-            if(_memServer!=null)
-                _memServer.WriteBytes(MainBitmap);
+            if (_memServer!=null)
+                _memServer.PushTexture(buffer, _copysize);
             
         }
 

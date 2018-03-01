@@ -64,7 +64,7 @@ namespace SharedPluginServer
 
 
 
-        public void SetMemServer(SharedMemServer memServer)
+        public void SetMemServer(SharedTextureWriter memServer)
         {
             _renderHandler._memServer = memServer;
         }
@@ -94,11 +94,6 @@ namespace SharedPluginServer
         protected override CefLifeSpanHandler GetLifeSpanHandler()
         {
             return _lifespanHandler;
-        }
-
-        public byte[] GetBitmap()
-        {
-            return _renderHandler.MainBitmap;
         }
 
         public int GetWidth()

@@ -27,6 +27,8 @@ UnityClient/Assets/SimpleWebBrowser/PluginServer/x64/Extending Unity with Editor
 UnityClient/Assets/SimpleWebBrowser/PluginServer/x64/Extending Unity with Editor Scripting [eBook].pdf
 _ReSharper.Caches/
 
+UnityClient/Assets/SimpleWebBrowser/PluginServer/x64/GPUCache*
+packages/*
 syntax: glob
 .DS_Store
 *.sln

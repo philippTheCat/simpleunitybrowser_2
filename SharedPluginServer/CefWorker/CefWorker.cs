@@ -126,7 +126,7 @@ namespace SharedPluginServer
             
         }
 
-        public void SetMemServer(SharedMemServer memServer)
+        public void SetMemServer(SharedTextureWriter memServer)
         {
             _client.SetMemServer(memServer);
         }
@@ -189,10 +189,7 @@ namespace SharedPluginServer
 
         
 
-        public byte[] GetBitmap()
-        {
-            return _client.GetBitmap();
-        }
+        
 
         public int GetWidth()
         {

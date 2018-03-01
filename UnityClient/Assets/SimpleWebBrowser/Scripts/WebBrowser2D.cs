@@ -582,7 +582,10 @@ if (UIEnabled)
 
         void OnDisable()
         {
-            _mainEngine.Shutdown();
+            if (_mainEngine != null) {
+                _mainEngine.Shutdown();
+                _mainEngine = null;
+            }
         }
 
 

@@ -3,325 +3,14 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Windows.Forms;
-using MessageLibrary;
-using SharedPluginServer.Interprocess;
+
 using Xilium.CefGlue;
 
 namespace SharedPluginServer
 {
 
     //Main application
-
-    public class App
-    {
-        private static readonly log4net.ILog log =
- log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
-
-
-      
-
-        private bool _enableWebRtc = false;
-
-        private SharedMemServer _memServer;
-
-        //SharedMem comms
-        private SharedCommServer _inCommServer;
-        private SharedCommServer _outCommServer;
-
-        private CefWorker _mainWorker;
-
-        private System.Windows.Forms.Timer _exitTimer;
-
-        public bool IsRunning;
-
-        /// <summary>
-        /// App constructor
-        /// </summary>
-        /// <param name="worker">Main CEF worker</param>
-        /// <param name="memServer">Shared memory file</param>
-        /// <param name="commServer">TCP server</param>
-       // public App(CefWorker worker, SharedMemServer memServer, SocketServer commServer,bool enableWebRtc)
-        public App(CefWorker worker, SharedMemServer memServer, SharedCommServer inServer,SharedCommServer outServer, bool enableWebRtc)
-        {
-        //    _renderProcessHandler = new WorkerCefRenderProcessHandler();
-            _enableWebRtc = enableWebRtc;
-
-            _memServer = memServer;
-            _mainWorker = worker;
-           //init SharedMem comms
-            _inCommServer = inServer;
-            _outCommServer = outServer;
-
-            _mainWorker.SetMemServer(_memServer);
-
-            //attach dialogs and queries
-            _mainWorker.OnJSDialog += _mainWorker_OnJSDialog;
-            _mainWorker.OnBrowserJSQuery += _mainWorker_OnBrowserJSQuery;
-
-            //attach page events
-            _mainWorker.OnPageLoaded += _mainWorker_OnPageLoaded;
-
-           
-
-            IsRunning = true;
-
-           _exitTimer=new Timer();
-            _exitTimer.Interval = 10000;
-            _exitTimer.Tick += _exitTimer_Tick;
-            _exitTimer.Start();
-        }
-
-        public void CheckMessage()
-        {
-            _outCommServer.PushMessages();
-
-            EventPacket ep = _inCommServer.GetMessage();
-            if (ep != null)
-                HandleMessage(ep);
-           
-        }
-
-     
-        private void _mainWorker_OnPageLoaded(string url, int status)
-        {
-           // log.Info("Navigated to:"+url);
-
-            GenericEvent msg = new GenericEvent()
-            {
-                NavigateUrl = url,
-                GenericType = BrowserEventType.Generic,
-                Type = GenericEventType.PageLoaded
-            };
-
-            EventPacket ep = new EventPacket
-            {
-                Event = msg,
-                Type = BrowserEventType.Generic
-            };
-
-            _outCommServer.WriteMessage(ep);
-        }
-
-        //shut down by timer, in case of client crash/hang
-        private void _exitTimer_Tick(object sender, EventArgs e)
-        {
-            try
-            {
-                log.Info("Exiting by timer,timeout:"+_exitTimer.Interval);
-                log.Info("==============SHUTTING DOWN==========");
-             
-                _mainWorker.Shutdown();
-
-                _memServer.Dispose();
-
-               
-                _inCommServer.Dispose();
-                _outCommServer.Dispose();
-
-                IsRunning = false;
-             
-
-            }
-            catch (Exception ex)
-            {
-
-                log.Info("Exception on shutdown:" + ex.StackTrace);
-            }
-        }
-
-        private void _mainWorker_OnBrowserJSQuery(string query)
-        {
-            GenericEvent msg = new GenericEvent()
-            {
-                JsQuery = query,
-                GenericType = BrowserEventType.Generic,
-                Type = GenericEventType.JSQuery
-            };
-
-            EventPacket ep = new EventPacket
-            {
-                Event = msg,
-                Type = BrowserEventType.Generic
-            };
-
-            MemoryStream mstr = new MemoryStream();
-            BinaryFormatter bf = new BinaryFormatter();
-            bf.Serialize(mstr, ep);
-
-            _outCommServer.WriteBytes(mstr.GetBuffer());
-        }
-
-        private void _mainWorker_OnJSDialog(string message, string prompt, DialogEventType type)
-        {
-            DialogEvent msg = new DialogEvent()
-            {
-                DefaultPrompt = prompt,
-                Message = message,
-                Type = type,
-                GenericType = BrowserEventType.Dialog
-            };
-
-            EventPacket ep = new EventPacket
-            {
-                Event = msg,
-                Type = BrowserEventType.Dialog
-            };
-
-            MemoryStream mstr = new MemoryStream();
-            BinaryFormatter bf = new BinaryFormatter();
-            bf.Serialize(mstr, ep);
-
-            _outCommServer.WriteBytes(mstr.GetBuffer());
-        }
-
-        /// <summary>
-        /// Main message handler
-        /// </summary>
-        /// <param name="msg">Message from client app</param>
-        public void HandleMessage(EventPacket msg)
-        {
-
-            //reset timer
-               _exitTimer.Stop();
-              _exitTimer.Start();
-
-         
-
-            switch (msg.Type)
-            {
-                case BrowserEventType.Ping:
-                {
-                 
-                        break;
-                }
-
-                case BrowserEventType.Generic:
-                {
-                    GenericEvent genericEvent=msg.Event as GenericEvent;
-                    if (genericEvent != null)
-                    {
-                        switch (genericEvent.Type)
-                        {
-                             case GenericEventType.Shutdown:
-                            {
-                                try
-                                {
-                                    log.Info("==============SHUTTING DOWN==========");
-                                   
-                                       _mainWorker.Shutdown();
-                                    
-                                     _memServer.Dispose();
-
-                                           
-                                            _outCommServer.Dispose();
-                                            _inCommServer.Dispose();
-
-                                            IsRunning = false;
-                                          
-
-                                        }
-                                catch (Exception e)
-                                {
-
-                                    log.Info("Exception on shutdown:"+e.StackTrace);
-                                }
-
-                                break;
-                            }
-                               case GenericEventType.Navigate:
-                                    
-                                    _mainWorker.Navigate(genericEvent.NavigateUrl);
-                                break;
-
-                                case GenericEventType.GoBack:
-                                    _mainWorker.GoBack();
-                                break;
-
-                                case GenericEventType.GoForward:
-                                        _mainWorker.GoForward();
-                                break;
-
-                                case GenericEventType.ExecuteJS:
-                                    _mainWorker.ExecuteJavaScript(genericEvent.JsCode);
-                                break;
-                               
-                            case GenericEventType.JSQueryResponse:
-                            {
-                                        _mainWorker.AnswerQuery(genericEvent.JsQueryResponse);
-                             break;   
-                            }
-                               
-                        }
-                    }
-                    break;
-                }
-
-                case BrowserEventType.Dialog:
-                {
-                        DialogEvent de=msg.Event as DialogEvent;
-                    if (de != null)
-                    {
-                        _mainWorker.ContinueDialog(de.success,de.input);
-                    }
-                    break;
-                    
-                }
-
-                case BrowserEventType.Keyboard:
-                {
-                        KeyboardEvent keyboardEvent=msg.Event as KeyboardEvent;
-
-                      
-
-                    if (keyboardEvent != null)
-                    {
-                        if (keyboardEvent.Type != KeyboardEventType.Focus)
-                            _mainWorker.KeyboardEvent(keyboardEvent.Key, keyboardEvent.Type);
-                        else
-                            _mainWorker.FocusEvent(keyboardEvent.Key);
-
-                    }
-                    break;
-                }
-                case BrowserEventType.Mouse:
-                    {
-                        MouseMessage mouseMessage=msg.Event as MouseMessage;
-                        if (mouseMessage != null)
-                        {
-                          
-                            switch (mouseMessage.Type)
-                            {
-                                case MouseEventType.ButtonDown:
-                                    _mainWorker.MouseEvent(mouseMessage.X, mouseMessage.Y, false,mouseMessage.Button);
-                                    break;
-                                case MouseEventType.ButtonUp:
-                                    _mainWorker.MouseEvent(mouseMessage.X, mouseMessage.Y, true,mouseMessage.Button);
-                                    break;
-                                case MouseEventType.Move:
-                                    _mainWorker.MouseMoveEvent(mouseMessage.X, mouseMessage.Y, mouseMessage.Button);
-                                    break;
-                                    case MouseEventType.Leave:
-                                    _mainWorker.MouseLeaveEvent();
-                                    break;
-                                    case MouseEventType.Wheel:
-                                    _mainWorker.MouseWheelEvent(mouseMessage.X,mouseMessage.Y,mouseMessage.Delta);
-                                    break;
-                            }
-                        }
-
-                        break;
-                    }
-            }
-
-           
-        }
-
-     
-    }
-
-    
 
 
     static class Program
@@ -346,14 +35,17 @@ log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().Dec
         [STAThread]
         static int Main(string[] args)
         {
-           
+            string path = Directory.GetCurrentDirectory();
+            var runtimepath = path;
+            var clientpath = Path.Combine(runtimepath, "cefclient.exe");
+            var resourcepath = runtimepath;
+            var localepath = Path.Combine(resourcepath, "locales");
 
             log.Info("===============START================");
 
-            //////// CEF RUNTIME
             try
             {
-                CefRuntime.Load();
+                CefRuntime.Load(runtimepath); //using native render helper
             }
             catch (DllNotFoundException ex)
             {
@@ -368,10 +60,6 @@ log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().Dec
                 log.ErrorFormat("{0} error", ex.Message);
 
             }
-
-           
-
-
             int defWidth = 1280;
             int defHeight = 720;
             string defUrl = "http://test.webrtc.org";
@@ -415,8 +103,9 @@ log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().Dec
             try
             {
 
-             CefMainArgs cefMainArgs;
-                cefMainArgs = new CefMainArgs(args);
+             CefMainArgs cefMainArgs=new CefMainArgs(args) {
+                 
+             };
              var cefApp = new WorkerCefApp(useWebRTC,EnableGPU);
 
              
@@ -433,11 +122,17 @@ log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().Dec
                 SingleProcess = false,
                 MultiThreadedMessageLoop = true,
                 WindowlessRenderingEnabled = true,
-                LogSeverity = CefLogSeverity.Info,
-
+                //
+                BrowserSubprocessPath = clientpath,
+                FrameworkDirPath = runtimepath,
+                ResourcesDirPath = resourcepath,
+                LocalesDirPath = localepath,
+                LogFile = defFileName+".log",
+                Locale = "en-US",
+                LogSeverity = CefLogSeverity.Error,
+                //RemoteDebuggingPort = 8088,
+                NoSandbox = true
             };
-
-
 
             try
             {
@@ -460,26 +155,20 @@ log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().Dec
 
 
 
-                CefWorker worker = new CefWorker();
-                worker.Init(defWidth, defHeight, defUrl);
-
-                SharedMemServer server = new SharedMemServer();
-                server.Init(defWidth * defHeight * 4, defFileName);
-
-
-          
-            SharedCommServer inSrv = new SharedCommServer(false);
-
+           CefWorker worker = new CefWorker();
+           worker.Init(defWidth, defHeight, defUrl);
+            log.Info("bind shared memory");
+            SharedTextureWriter server = new SharedTextureWriter(defFileName, defWidth * defHeight * 4);
+            MessageReader inSrv = MessageReader.Create(defInFileName,10000);
+            MessageWriter outSrv = MessageWriter.Create(defOutFileName,10000);
+            log.Info("complete to bind shared memory, ready and wait");
             //TODO: the sizes may vary, but 10k should be enough?
-            inSrv.InitComm(10000, defInFileName);
-
-            SharedCommServer outSrv = new SharedCommServer(true);
-            outSrv.InitComm(10000, defOutFileName);
 
             var app = new App(worker, server, inSrv, outSrv, false);
+            app.ResetTimer();
 
-          
-           while(app.IsRunning)
+
+           while (app.IsRunning)
             {
                 Application.DoEvents();
                 //check incoming messages and push outcoming

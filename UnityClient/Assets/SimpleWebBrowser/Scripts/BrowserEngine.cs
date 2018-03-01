@@ -10,9 +10,9 @@ namespace SimpleWebBrowser
 {
     public class BrowserEngine
     {
-        private SharedTextureReader _mainTexArray;
-        private SharedCommServer _inCommServer;
-        private SharedCommServer _outCommServer;
+        private SharedTextureBuffer _mainTexArray;
+        private MessageReader _inCommServer;
+        private MessageWriter _outCommServer;
         private Process _pluginProcess;
         
         public Texture2D BrowserTexture = null;
@@ -87,13 +87,11 @@ namespace SimpleWebBrowser
             //Also change the path in deployment script.
 
 #if UNITY_EDITOR_64
-            string PluginServerPath = Application.dataPath + @"\SimpleWebBrowser\PluginServer\x64";
+         string PluginServerPath = Application.dataPath + @"\SimpleWebBrowser\PluginServer\x64";
 #else
 #if UNITY_EDITOR_32
         string PluginServerPath = Application.dataPath + @"\SimpleWebBrowser\PluginServer\x86";
 #else
-
-
         //HACK
         string AssemblyPath=System.Reflection.Assembly.GetExecutingAssembly().Location;
         //log this for error handling
@@ -134,10 +132,11 @@ namespace SimpleWebBrowser
                 BrowserTexture = new Texture2D(kWidth, kHeight, TextureFormat.BGRA32, false, true);
             string args = BuildParamsString();
 
-           _connected = false;
 
-            _inCommServer = new SharedCommServer(false);
-            _outCommServer = new SharedCommServer(true);
+           _connected = false;
+            _inCommServer = null;
+            _outCommServer = null;
+
 
             while (!_connected)
             {
@@ -162,17 +161,23 @@ namespace SimpleWebBrowser
                     Debug.Log("FAILED TO START SERVER FROM:" + PluginServerPath + @"\SharedPluginServer.exe");
                     throw;
                 }
-                yield return new WaitForSeconds(1.0f);
-                _inCommServer.Connect(_inCommFile);
-                bool b1 = _inCommServer.GetIsOpen();
-                _outCommServer.Connect(_outCommFile);
-                bool b2 = _outCommServer.GetIsOpen();
-                _connected = b1 && b2;
-               
+                yield return new WaitForSeconds(4.0f);
+                //_pluginProcess.WaitForInputIdle();
+
+                MessageReader inserv = null;
+                MessageWriter outserv = null;
+                try {
+                    inserv = MessageReader.Open(_inCommFile);
+                    outserv = MessageWriter.Open(_outCommFile);
+                    _inCommServer = inserv;
+                    _outCommServer = outserv;
+                    _connected = true;
+                }
+                catch (Exception e) {
+                    if (_inCommServer != null) _inCommServer.Dispose();
+                    if (_outCommServer != null) _outCommServer.Dispose();
+                }
             }
-
-
-
         }
 
         private string BuildParamsString()
@@ -223,7 +228,7 @@ namespace SimpleWebBrowser
                     Event = ge,
                     Type = MessageLibrary.BrowserEventType.Generic
                 };
-                _outCommServer.WriteMessage(ep);
+                _outCommServer.TrySend(ep,100);
             }
         }
 
@@ -243,7 +248,7 @@ namespace SimpleWebBrowser
                     Type = MessageLibrary.BrowserEventType.Generic
                 };
 
-                _outCommServer.WriteMessage(ep);
+                _outCommServer.TrySend(ep,100);
             }
         }
 
@@ -266,7 +271,7 @@ namespace SimpleWebBrowser
                     Type = MessageLibrary.BrowserEventType.Dialog
                 };
 
-                _outCommServer.WriteMessage(ep);
+                _outCommServer.TrySend(ep,100);
             }
         }
 
@@ -287,7 +292,7 @@ namespace SimpleWebBrowser
                     Type = BrowserEventType.Generic
                 };
 
-                _outCommServer.WriteMessage(ep);
+                _outCommServer.TrySend(ep,100);
             }
         }
 
@@ -306,7 +311,7 @@ namespace SimpleWebBrowser
                     Type = MessageLibrary.BrowserEventType.Keyboard
                 };
 
-                _outCommServer.WriteMessage(ep);
+                _outCommServer.TrySend(ep, 100);
             }
         }
 
@@ -320,7 +325,9 @@ namespace SimpleWebBrowser
                     Type = MessageLibrary.BrowserEventType.Mouse
                 };
 
-                _outCommServer.WriteMessage(ep);
+                if (!_outCommServer.TrySend(ep, 100)) {
+                    Debug.LogWarningFormat("mouse message lost {0}", ep.Type);
+                }
             }
 
         }
@@ -342,7 +349,7 @@ namespace SimpleWebBrowser
                     Type = BrowserEventType.Generic
                 };
 
-                _outCommServer.WriteMessage(ep);
+                _outCommServer.TrySend(ep, 100);
             }
         }
 
@@ -359,7 +366,7 @@ namespace SimpleWebBrowser
                     Event = ge,
                     Type = BrowserEventType.Ping
                 };
-                    _outCommServer.WriteMessage(ep);
+                    _outCommServer.TrySend(ep, 100);
                 }
         }
 
@@ -405,26 +412,17 @@ namespace SimpleWebBrowser
             }
             else
             {
-                //  yield return new WaitForSeconds(2);
                 if(_connected)
                 { 
-               
-                   
-                    
-                        //Thread.Sleep(200); //give it some time to initialize
-
                         try
                         {
-
-
                             //init memory file
-                            _mainTexArray = new SharedTextureReader(_sharedFileName);
+                            _mainTexArray = new SharedTextureBuffer(_sharedFileName);
 
                             Initialized = true;
                         }
                         catch (Exception ex)
                         {
-                            //SharedMem and TCP exceptions
                             Debug.Log("Exception on init:" + ex.Message + ".Waiting for plugin server");
                         }
 
@@ -443,7 +441,7 @@ namespace SimpleWebBrowser
                 try
                 {
                     // Ensure that no other threads try to use the stream at the same time.
-                    EventPacket ep = _inCommServer.GetMessage();
+                    EventPacket ep = _inCommServer.TryRecive(0);
 
 
                     if (ep != null)
@@ -501,12 +499,16 @@ namespace SimpleWebBrowser
             if (Initialized)
             {
                 SendPing();
-                if (_mainTexArray.AcquireReadLock(0)) {
+                if (_mainTexArray.AcquireReadLock(1)) {
+                    _mainTexArray.MarkProcessed();
                     if (_mainTexArray.Length > 0) {
                         BrowserTexture.LoadRawTextureData(_mainTexArray.UnsafeDataPointer(), _mainTexArray.Length);
                         BrowserTexture.Apply();
                     }
                     _mainTexArray.ReleaseReadLock();
+                }
+                else {
+                    int i = 0;
                 }
             }
         }
