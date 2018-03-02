@@ -9,10 +9,9 @@ namespace SharedPluginServer
 {
 
     //Main CEF worker
-    public class CefWorker:IDisposable
+    public class CefWorker : IDisposable
     {
-        private static readonly log4net.ILog log =
-    log4net.LogManager.GetLogger(typeof(CefWorker));
+        private static readonly log4net.ILog log = log4net.LogManager.GetLogger(typeof(CefWorker));
 
         [DllImport("kernel32.dll", EntryPoint = "CopyMemory", SetLastError = false)]
         public static extern void CopyMemory(IntPtr dest, IntPtr src, uint count);
@@ -72,6 +71,7 @@ namespace SharedPluginServer
 
         public void Dispose()
         {
+
             Dispose(true);
             GC.SuppressFinalize(this);
         }
@@ -80,7 +80,7 @@ namespace SharedPluginServer
         {
             if (disposing)
             {
-                log.Info("=============SHUTTING DOWN========");
+                log.Info("disposing CefWorker");
                 Shutdown();
             }
 
@@ -102,14 +102,15 @@ namespace SharedPluginServer
 
                 CefWindowInfo cefWindowInfo = CefWindowInfo.Create();
                 cefWindowInfo.SetAsWindowless(IntPtr.Zero, false);
-                var cefBrowserSettings = new CefBrowserSettings();
+                var cefBrowserSettings = new CefBrowserSettings {
+                    JavaScript = CefState.Enabled,
+                    TabToLinks = CefState.Enabled,
+                    WebSecurity = CefState.Disabled,
+                    WebGL = CefState.Enabled,
+                    WindowlessFrameRate = 30
+                };
 
-                cefBrowserSettings.JavaScript=CefState.Enabled;
-                //cefBrowserSettings.CaretBrowsing=CefState.Enabled;
-                cefBrowserSettings.TabToLinks=CefState.Enabled;
-                cefBrowserSettings.WebSecurity=CefState.Disabled;
-                cefBrowserSettings.WebGL=CefState.Enabled;
-                cefBrowserSettings.WindowlessFrameRate = 30;
+            
 
             _client = new WorkerCefClient(width, height,this);
             
@@ -141,12 +142,14 @@ namespace SharedPluginServer
                 return;
             }
 
-            // window.cefQuery({ request: 'my_request', onSuccess: function(response) { console.log(response); }, onFailure: function(err,msg) { console.log(err, msg); } });
+            
             BrowserMessageRouter = new CefMessageRouterBrowserSide(new CefMessageRouterConfig());
             _queryHandler=new WorkerCefMessageRouterHandler();
             _queryHandler.OnBrowserQuery += Handler_OnBrowserQuery;
             BrowserMessageRouter.AddHandler(_queryHandler);
         }
+
+        
 
         private void Handler_OnBrowserQuery(string query)
         {
@@ -187,26 +190,12 @@ namespace SharedPluginServer
 
         #endregion
 
-        
-
-        
-
-        public int GetWidth()
-        {
-            return _client.GetWidth();
-        }
-
-        public int GetHeight()
-        {
-            return _client.GetWidth();
-        }
-
-
-
-        public void Shutdown()
-        {
-            _client.Shutdown();
-          // 
+        public void Shutdown() {
+            
+            if (_client != null) {
+                _client.Shutdown();
+                _client = null;
+            }
         }
 
 #region Navigation and controls

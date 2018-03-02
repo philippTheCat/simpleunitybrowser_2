@@ -161,8 +161,22 @@ namespace SimpleWebBrowser
                     Debug.Log("FAILED TO START SERVER FROM:" + PluginServerPath + @"\SharedPluginServer.exe");
                     throw;
                 }
-                yield return new WaitForSeconds(4.0f);
-                //_pluginProcess.WaitForInputIdle();
+
+                bool isReady = false;
+                while (!isReady) {
+                    try {
+                        isReady = _pluginProcess.WaitForInputIdle(0);
+                    }
+                    catch (Exception e) {
+                        Debug.LogException(e);
+                    }
+                    yield return new WaitForSeconds(0.5f);
+                }
+
+                
+
+
+
 
                 MessageReader inserv = null;
                 MessageWriter outserv = null;
@@ -176,7 +190,9 @@ namespace SimpleWebBrowser
                 catch (Exception e) {
                     if (_inCommServer != null) _inCommServer.Dispose();
                     if (_outCommServer != null) _outCommServer.Dispose();
+                    _pluginProcess.Dispose();
                 }
+                
             }
         }
 

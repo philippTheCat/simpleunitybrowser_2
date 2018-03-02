@@ -2,6 +2,7 @@ syntax: glob
 *.suo
 *.info
 *.bak
+*.pdb
 ConsoleTest/bin/
 ConsoleTest/obj/
 SharedPluginServer/bin/
@@ -11,14 +12,12 @@ TestClient/bin/
 TestClient/obj/
 MessageLibrary/bin/
 MessageLibrary/obj/
-*\UnityClient\Library\*
 UnityClient/Library/*
-UnityClient/Library
 UnityClient/Temp
 release_build/
 UnityClient/Output/
-UnityClient/Assets/SimpleWebBrowser/PluginServer/x64/debug.log
-UnityClient/Assets/SimpleWebBrowser/PluginServer/x64/log-file.txt
+/PluginServer/x64/debug.log
+/PluginServer/x64/log-file.txt
 UnityClient/BrowserDemo.zip
 SharedMemory/bin/
 SharedMemory/obj/
@@ -29,11 +28,13 @@ _ReSharper.Caches/
 
 UnityClient/Assets/SimpleWebBrowser/PluginServer/x64/GPUCache*
 packages/*
+UnityClient/*.meta
+UnityClient/Assets/test.unity.meta
 syntax: glob
 .DS_Store
-*.sln
+
 *.userprefs
-*.csproj
+
 *.pidb
 *.unitypackage
 syntax: regexp

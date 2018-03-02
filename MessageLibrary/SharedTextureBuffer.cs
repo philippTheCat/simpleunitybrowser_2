@@ -24,11 +24,12 @@ public class SharedTextureWriter : IDisposable
     }
 
     public void PushTexture(IntPtr from, int size) {
-        Resize(size);
-        //if (_buffer.AcquireWriteLock(10000)) { //don't wait on write lock, no VSync needed
-        CopyMemory(_buffer.UnsafeDataPointer(), from, (uint)size);
-        _buffer.ReleaseWriteLock();
-        //}
+        if (_buffer != null) {
+            Resize(size);
+            //if (_buffer.AcquireWriteLock(10000)) { //don't wait on write lock, no VSync needed
+            CopyMemory(_buffer.UnsafeDataPointer(), from, (uint) size);
+            _buffer.ReleaseWriteLock();
+        }
 
     }
 

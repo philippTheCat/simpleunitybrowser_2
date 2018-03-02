@@ -58,8 +58,7 @@ namespace SharedPluginServer {
 
             IsRunning = true;
 
-            _exitTimer=new Timer();
-            _exitTimer.Interval = 10000;
+            _exitTimer = new Timer {Interval = 10000};
             _exitTimer.Tick += _exitTimer_Tick;
             _exitTimer.Start();
         }
@@ -188,13 +187,6 @@ namespace SharedPluginServer {
                                 {
                                     log.Info("==============SHUTTING DOWN==========");
                                    
-                                    _mainWorker.Shutdown();
-                                    
-                                    _memServer.Dispose();
-
-                                           
-                                    _outCommServer.Dispose();
-                                    _inCommServer.Dispose();
 
                                     IsRunning = false;
                                           
