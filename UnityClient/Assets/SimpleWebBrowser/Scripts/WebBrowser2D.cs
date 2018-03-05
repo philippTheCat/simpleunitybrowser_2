@@ -19,9 +19,10 @@ namespace SimpleWebBrowser
 
         #region General
 
-        [Header("General settings")] public int Width = 1024;
-
+        [Header("General settings")]
+        public int Width = 1024;
         public int Height = 768;
+        public bool AutoFitParent = true;
 
         public string MemoryFile = "MainSharedMem";
 
@@ -109,33 +110,54 @@ namespace SimpleWebBrowser
         #region Initialization
 
         //why Unity does not store the links in package?
-        void InitPrefabLinks()
-        {
+        T Search<T>(string name) {
+            var child = transform.Find(name);
+            if (child) {
+                var component = child.gameObject.GetComponent<T>();
+                return component;
+            }
+            return default(T);
+        }
+
+        void InitPrefabLinks() {
             if (Browser2D == null)
                 Browser2D = gameObject.GetComponent<RawImage>();
-            if (mainUIPanel == null)
-                mainUIPanel = gameObject.transform.Find("MainUI").gameObject.GetComponent<BrowserUI>();
-            if (DialogPanel == null)
-                DialogPanel = gameObject.transform.Find("MessageBox").gameObject;
-            if (DialogText == null)
-                DialogText = DialogPanel.transform.Find("MessageText").gameObject.GetComponent<Text>();
-            if (OkButton == null)
-                OkButton = DialogPanel.transform.Find("OK").gameObject.GetComponent<Button>();
-            if (YesButton == null)
-                YesButton = DialogPanel.transform.Find("Yes").gameObject.GetComponent<Button>();
-            if (NoButton == null)
-                NoButton = DialogPanel.transform.Find("No").gameObject.GetComponent<Button>();
-            if (DialogPrompt == null)
-                DialogPrompt = DialogPanel.transform.Find("Prompt").gameObject.GetComponent<InputField>();
+            if (mainUIPanel == null) {
+                mainUIPanel = Search<BrowserUI>("MainUI");
+            }
 
+            if (DialogPanel == null) {
+                var messagebox = transform.Find("MessageBox");
+                if(messagebox)
+                    DialogPanel = messagebox.gameObject;
+            }
+
+            if (DialogText == null)
+                    DialogText = Search<Text>("MessageText");
+            if (OkButton == null)
+                    OkButton = Search<Button>("OK");
+            if (YesButton == null)
+                    YesButton = Search<Button>("Yes");
+            if (NoButton == null)
+                    NoButton = Search<Button>("No");
+            if (DialogPrompt == null)
+                    DialogPrompt = Search<InputField>("Prompt");
+            Debug.Log("Init prefab completed");
         }
 
 
         
 
 
-        void Start()
-        {
+        void Start() {
+            Debug.Log("Browser2d start");
+            if (AutoFitParent) {
+                var pixsource = transform as RectTransform;
+                var rect = pixsource.rect;
+                Width = (int)rect.width;
+                Height=(int)rect.height;
+                Debug.LogFormat("Browser2d resize to {0}x{1}", Width, Height);
+            }
             _mainEngine = new BrowserEngine();
 
             if (RandomMemoryFile) {
@@ -143,42 +165,49 @@ namespace SimpleWebBrowser
                 MemoryFile = memid.ToString();
             }
 
-            IEnumerator initCoroutine =
-                _mainEngine.InitPlugin(Width, Height, MemoryFile, InitialURL, EnableWebRTC, EnableGPU);
-            StartCoroutine(initCoroutine);
+            
             //run initialization
             if (JSInitializationCode.Trim() != "")
                 _mainEngine.RunJSOnce(JSInitializationCode);
 
             if (UIEnabled){
                 InitPrefabLinks();
+                if(mainUIPanel!=null)
                 mainUIPanel.InitPrefabLinks();
             }
 
+            var parentcanvas = GetComponentInParent<Canvas>();
+            if (parentcanvas != null) {
+                _mainCamera = parentcanvas.worldCamera; //get camera assigned to parent canvas
+            }
+            if(_mainCamera==null)  //try to get default but this completely wrong
             _mainCamera = GameObject.Find("Main Camera").GetComponent<Camera>();
 
-            Browser2D.texture = _mainEngine.BrowserTexture;
-            Browser2D.uvRect = new Rect(0f, 0f, 1f, -1f);
-
-
-
-
-
-
-            // _mainInput = MainUrlInput.GetComponent<Input>();
+            if (mainUIPanel != null) {
             mainUIPanel.KeepUIVisible = KeepUIVisible;
             if (!KeepUIVisible)
                 mainUIPanel.Hide();
+            }
 
             //attach dialogs and querys
             _mainEngine.OnJavaScriptDialog += _mainEngine_OnJavaScriptDialog;
             _mainEngine.OnJavaScriptQuery += _mainEngine_OnJavaScriptQuery;
             _mainEngine.OnPageLoaded += _mainEngine_OnPageLoaded;
+            _mainEngine.OnTextureObjectUpdated += OnTextureObjectUpdated;
 
+            if(DialogPanel!=null)
             DialogPanel.SetActive(false);
+            IEnumerator initCoroutine = _mainEngine.InitPlugin(Width, Height, MemoryFile, InitialURL, EnableWebRTC, EnableGPU);
+            StartCoroutine(initCoroutine);
 
 
+        }
 
+        private void OnTextureObjectUpdated(Texture2D newtexture) {
+            Debug.Log("start update");
+            Browser2D.texture = newtexture;
+            Browser2D.uvRect = new Rect(0f, 0f, 1f, -1f);
+            Debug.Log("texture object updated");
         }
 
         private void _mainEngine_OnPageLoaded(string url)
@@ -269,9 +298,18 @@ namespace SimpleWebBrowser
 
         public void OnNavigate()
         {
-            // MainUrlInput.isFocused
+            if(mainUIPanel!=null)
             _mainEngine.SendNavigateEvent(mainUIPanel.UrlField.text, false, false);
 
+        }
+
+        public void Navigate(string url) {
+            if (mainUIPanel != null) {
+                mainUIPanel.UrlField.text = url;
+            }
+            if(_mainEngine!=null)
+                _mainEngine.SendNavigateEvent(url, false, false);
+            InitialURL = url;
         }
 
  public void RunJavaScript(string js)
@@ -296,7 +334,7 @@ namespace SimpleWebBrowser
         public void OnPointerEnter(PointerEventData data)
         {
             _focused = true;
-			if(UIEnabled)
+			if(UIEnabled && mainUIPanel != null)
             	mainUIPanel.Show();
             StartCoroutine("TrackPointer");
         }
@@ -304,7 +342,7 @@ namespace SimpleWebBrowser
         public void OnPointerExit(PointerEventData data)
         {
             _focused = false;
-			if(UIEnabled)
+			if(UIEnabled && mainUIPanel!=null)
             	mainUIPanel.Hide();
             StopCoroutine("TrackPointer");
         }
@@ -505,8 +543,11 @@ namespace SimpleWebBrowser
 
         #endregion
         // Update is called once per frame
-        void Update()
-        {
+        void Update() {
+            
+            if (_mainEngine == null)
+                return;
+            
             _mainEngine.UpdateTexture();
 
             #region 2D mouse
@@ -537,16 +578,14 @@ namespace SimpleWebBrowser
             if (_setUrl)
             {
                 _setUrl = false;
-                if(UIEnabled)
+                if(UIEnabled && mainUIPanel!=null)
                 mainUIPanel.UrlField.text = _setUrlString;
 
             }
 
 if (UIEnabled)
             {
-
-
-            if (_focused && !mainUIPanel.UrlField.isFocused) //keys
+                if (_focused && (mainUIPanel==null || !mainUIPanel.UrlField.isFocused)) //keys
             {
                 foreach (char c in Input.inputString)
                 {
@@ -582,6 +621,7 @@ if (UIEnabled)
 
         void OnDisable()
         {
+            Debug.Log("browser 2d disable");
             if (_mainEngine != null) {
                 _mainEngine.Shutdown();
                 _mainEngine = null;

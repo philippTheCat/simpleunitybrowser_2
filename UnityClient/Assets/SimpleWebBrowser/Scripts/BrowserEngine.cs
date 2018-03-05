@@ -30,6 +30,7 @@ namespace SimpleWebBrowser
         public delegate void PageLoaded(string url);
 
         public event PageLoaded OnPageLoaded;
+        public event Action<Texture2D> OnTextureObjectUpdated;
 
         #endregion
 
@@ -128,8 +129,12 @@ namespace SimpleWebBrowser
             _enableWebRTC = enableWebRTC;
             _enableGPU = enableGPU;
 
-              if (BrowserTexture == null)
+            if (BrowserTexture == null) {
                 BrowserTexture = new Texture2D(kWidth, kHeight, TextureFormat.BGRA32, false, true);
+                if(OnTextureObjectUpdated!=null)
+                    OnTextureObjectUpdated(BrowserTexture);
+            }
+
             string args = BuildParamsString();
 
 
@@ -161,7 +166,7 @@ namespace SimpleWebBrowser
                     Debug.Log("FAILED TO START SERVER FROM:" + PluginServerPath + @"\SharedPluginServer.exe");
                     throw;
                 }
-
+                yield return new WaitForSeconds(1.0f);
                 bool isReady = false;
                 while (!isReady) {
                     try {
@@ -169,6 +174,8 @@ namespace SimpleWebBrowser
                     }
                     catch (Exception e) {
                         Debug.LogException(e);
+                        if (_pluginProcess.HasExited)
+                            break;
                     }
                     yield return new WaitForSeconds(0.5f);
                 }
