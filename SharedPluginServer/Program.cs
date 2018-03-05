@@ -32,7 +32,9 @@ namespace SharedPluginServer
 
         [STAThread]
         static int Main(string[] args) {
+            Log.InfoFormat("start at current directory {0}",Directory.GetCurrentDirectory() );
             Log.Info("parsing command args");
+            
             if (!ParseCommandLine(args)) {
                 Log.Error("command line parse error");
                 return 0;
@@ -42,7 +44,7 @@ namespace SharedPluginServer
 
             Log.InfoFormat("Statring cef runtime");
 
-            if (!CefRintimePrepare(args, temporaryDirectoryPath,useWebRTC,EnableGPU)) {
+            if (!CefRintimePrepare(args, temporaryDirectoryPath)) {
                 Log.Error("cef runtime initialisation failed");
                 return 0; //immediate exit
             }
@@ -103,7 +105,7 @@ namespace SharedPluginServer
                         defInFileName = args[4];
                     if (args.Length > 5)
                         defOutFileName = args[5];
-                    if (args.Length > 6)
+                    if (args.Length > 6) 
                         if (args[6] == "1")
                             useWebRTC = true;
                     if (args.Length > 7)
@@ -119,18 +121,24 @@ namespace SharedPluginServer
             return true;
         }
         
-        static bool CefRintimePrepare(string[] args,string temporaryDirectoryPath, bool useWebRTC,bool EnableGPU) {
+        static bool CefRintimePrepare(string[] args,string temporaryDirectoryPath) {
             
             try {
+                
                 string path = Directory.GetCurrentDirectory();
                 var runtimepath = path;
+                
                 var clientpath = Path.Combine(runtimepath, "cefclient.exe");
+                Log.InfoFormat("using client path {0}", clientpath);
                 var resourcepath = runtimepath;
                 var localepath = Path.Combine(resourcepath, "locales");
                 Log.Info("===============START================");
                 CefRuntime.Load(runtimepath); //using native render helper
                 Log.Info("appending disable cache keys");
                 CefMainArgs cefMainArgs = new CefMainArgs(args) {};
+                if (useWebRTC) {
+                    Log.Info("starting with webrtc");
+                }
                 var cefApp = new WorkerCefApp(useWebRTC, EnableGPU);
                 int exit_code = CefRuntime.ExecuteProcess(cefMainArgs, cefApp, IntPtr.Zero);
 
@@ -148,7 +156,7 @@ namespace SharedPluginServer
                     FrameworkDirPath = runtimepath,
                     ResourcesDirPath = resourcepath,
                     LocalesDirPath = localepath,
-                    LogFile = Path.Combine(Path.GetTempPath(), new Guid().ToString() + ".log"),
+                    LogFile = Path.Combine(Path.GetTempPath(), "cefruntime-"+Guid.NewGuid() + ".log"),
                     Locale = "en-US",
                     LogSeverity = CefLogSeverity.Error,
                     //RemoteDebuggingPort = 8088,
