@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Collections;
+using System.IO;
 using System.Threading;
 using MessageLibrary;
 using UnityEngine;
@@ -88,10 +89,10 @@ namespace SimpleWebBrowser
             //Also change the path in deployment script.
 
 #if UNITY_EDITOR_64
-         string PluginServerPath = Application.dataPath + @"\SimpleWebBrowser\PluginServer\x64";
+         string PluginServerPath = Path.Combine(Application.dataPath , @"\SimpleWebBrowser\PluginServer\x64");
 #else
 #if UNITY_EDITOR_32
-        string PluginServerPath = Application.dataPath + @"\SimpleWebBrowser\PluginServer\x86";
+        string PluginServerPath = Path.Combine(Application.dataPath , @"\SimpleWebBrowser\PluginServer\x86");
 #else
         //HACK
         string AssemblyPath=System.Reflection.Assembly.GetExecutingAssembly().Location;

@@ -30,6 +30,11 @@ UnityClient/Assets/SimpleWebBrowser/PluginServer/x64/GPUCache*
 packages/*
 UnityClient/*.meta
 UnityClient/Assets/test.unity.meta
+UnityClient/Assets/SimpleWebBrowser/PluginServer/x64/log4net.xml.meta
+UnityClient/Assets/SimpleWebBrowser/PluginServer/x64/log4net.xml
+UnityClient/Assets/SimpleWebBrowser/PluginServer/x64/SharedMemory.xml
+UnityClient/Assets/SimpleWebBrowser/PluginServer/x64/SharedMemory.xml.meta
+UnityClient/Assets/SimpleWebBrowser/PluginServer/x64/SharedPluginServer.vshost*
 syntax: glob
 .DS_Store
 

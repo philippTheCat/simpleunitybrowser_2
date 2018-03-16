@@ -5,5 +5,9 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 1
+  - enabled: 0
     path: Assets/SimpleWebBrowser/Demo/web_browser.unity
+    guid: 9b3f1052fb351c34daa517cc8b00d4e0
+  - enabled: 1
+    path: Assets/test.unity
+    guid: 44d970fa04a7c7e498bf33103d338d65
